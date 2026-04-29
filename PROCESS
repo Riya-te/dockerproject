@@ -1,71 +1,98 @@
-DOCKER PROJECT:
+# 🚀 DOCKER SWARM CI/CD PROJECT (ONE-PAGE SUMMARY)
 
+---
 
+## 🔹 📌 Project Overview
+
+This project implements a **CI/CD pipeline** using:
+
+GitHub → Webhook → Jenkins → Docker → Docker Hub → Docker Swarm → Nginx → Users
+
+---
+
+## 🔹 🐳 Docker Setup (All Servers)
+
+```bash
 yum install docker -y
 systemctl start docker
+systemctl enable docker
 systemctl status docker
+```
 
+---
+
+## 🔹 🧱 Dockerfile (Custom Image)
+
+```dockerfile
 FROM ubuntu
 RUN apt-get update -y
 RUN apt-get install apache2 -y
 COPY index.html /var/www/html/
 CMD ["/usr/sbin/apachectl", "-D", "FOREGROUND"]
+```
 
+---
 
+## 🔹 📚 Key Concepts
 
-DOCKER FILE	: To create image by automation.
-DOCKER COMPOSE	: To create multiple containers on single server.
-DOCKER SWARM	: To create single containers on Multiple server.
-DOCKER STACK	: Docker swarm + Docker compose
+* **Dockerfile** → Build images
+* **Docker Compose** → Multi-container (single host)
+* **Docker Swarm** → Multi-node orchestration
+* **Docker Stack** → Compose + Swarm
 
-1. CREATE 3 SERVERS T2.MEDIUM AND INSTALL DOCKER ON ALL OF THEM & CREATE CLUSTER OF IT
+---
 
-yum install docker -y
-systemctl start docker
-systemctl status docker
-docker swarm init 
+## 🔹 🖥️ Swarm Cluster Setup (3 EC2 Instances)
+
+### Master Node
+
+```bash
+docker swarm init
 docker node ls
+```
 
+### Worker Nodes
 
-2. INSTALLING JENKINS (MASTER)
+```bash
+docker swarm join --token <TOKEN> <MASTER-IP>:2377
+```
 
-#STEP-1: INSTALLING GIT JAVA-1.8.0 MAVEN 
+---
+
+## 🔹 ⚙️ Jenkins Setup (Master Node)
+
+```bash
 yum install git java-1.8.0-openjdk maven -y
 
-#STEP-2: GETTING THE REPO (jenkins.io --> download -- > redhat)
-sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 
-#STEP-3: DOWNLOAD JAVA11 AND JENKINS
 amazon-linux-extras install java-openjdk11 -y
 yum install jenkins -y
-update-alternatives --config java
 
-#STEP-4: RESTARTING JENKINS (when we download service it will on stopped state)
-systemctl start jenkins.service
-systemctl status jenkins.service
+systemctl start jenkins
+systemctl enable jenkins
+```
 
+👉 Access:
+http://<EC2-IP>:8080
 
-3. CREATE CUSTOM IMAGES AND PUSH TO DOCKERHUB WITH TAGS
+---
 
-DOCKER FILE:
-FROM ubuntu
-RUN apt-get update -y
-RUN apt-get install apache2 -y
-COPY index.html /var/www/html/
-CMD ["/usr/sbin/apachectl", "-D", "FOREGROUND"]
+## 🔹 🔄 Jenkins Pipeline (CI/CD)
 
-INDEX.HTML:
-
-
-PIPELINE:
+```groovy
 pipeline {
     agent any
-    
+
+    triggers {
+        githubPush()
+    }
+
     stages {
         stage('checkout') {
             steps {
-                git 'https://github.com/ReyazShaik/dockerproject.git'
+                git 'https://github.com/YOUR-REPO.git'
             }
         }
         stage('build') {
@@ -80,74 +107,182 @@ pipeline {
         }
         stage('push') {
             steps {
-                sh 'docker login -u reyadocker -p $password'
+                sh 'docker login -u <user> -p $password'
                 sh 'docker push $repo'
             }
         }
         stage('deploy') {
             steps {
-                sh 'docker stack deploy bank -c docker-compose.yml'
+                sh 'docker stack deploy -c docker-compose.yml bank'
             }
         }
     }
 }
+```
 
-4. GIVE PERMISSIONS
+---
 
+## 🔹 🔐 Docker Permission (Jenkins)
+
+```bash
 chmod 777 /var/run/docker.sock
-systemctl daemon-reload
-systemctl restart docker.service
+systemctl restart docker
+```
 
+---
 
-5. WRITE COMPOSE FILE AND PUSH TO GITHUB
+## 🔹 📦 Docker Compose (With Nginx)
+
+```yaml
 version: '3.8'
+
 services:
+
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    configs:
+      - source: nginx_conf
+        target: /etc/nginx/nginx.conf
+    networks:
+      - banknet
+
   internetbanking:
-    image: reyadocker/internetbankingrepo:latest
-    ports:
-      - "81:80"
+    image: yourrepo/ib:latest
+    networks:
+      - banknet
     deploy:
       replicas: 3
-    volumes:
-      - /var/lib/internetbanking
+
   mobilebanking:
-    image: reyadocker/mobilebankingrepo:latest
-    ports:
-      - "82:80"
+    image: yourrepo/mb:latest
+    networks:
+      - banknet
     deploy:
       replicas: 3
-    volumes:
-      - /var/lib/mobilebanking
+
   insurance:
-    image: reyadocker/insurancerepo:latest
-    ports:
-      - "83:80"
+    image: yourrepo/insurance:latest
+    networks:
+      - banknet
     deploy:
       replicas: 3
-    volumes:
-      - /var/lib/insurance
+
   loan:
-    image: reyadocker/loanrepo:latest
-    ports:
-      - "84:80"
+    image: yourrepo/loan:latest
+    networks:
+      - banknet
     deploy:
       replicas: 3
-    volumes:
-      - /var/lib/loan
 
-COMMAND:
-TO DEPLOY : docker stack deploy --compose-file docker-compose.yml stack_name
-TO LIST : docker stack ls
-TO GET CONTAINERS OF A STACK : docker stack ps stack_name
-TO GET SERVICES OF A STACK: docker stack services stack_name
-TO DELETE A STACK: docker stack rm stack_name
+networks:
+  banknet:
+    driver: overlay
 
+configs:
+  nginx_conf:
+    external: true
+```
 
-PORTAINER: its a GUI for managing containers
+---
 
-SETUP:
-Must have swarm mode and all ports enable with docker engine
-curl -L https://downloads.portainer.io/ce2-16/portainer-agent-stack.yml -o portainer-agent-stack.yml
-docker stack deploy -c portainer-agent-stack.yml portainer
-docker stack ls
-public-ip of swarm master:9000
+## 🔹 🌐 Nginx Configuration
+
+```nginx
+events {}
+
+http {
+    resolver 127.0.0.11;
+
+    server {
+        listen 80;
+
+        location /internet/ {
+            proxy_pass http://internetbanking/;
+        }
+        location /mobile/ {
+            proxy_pass http://mobilebanking/;
+        }
+        location /insurance/ {
+            proxy_pass http://insurance/;
+        }
+        location /loan/ {
+            proxy_pass http://loan/;
+        }
+    }
+}
+```
+
+---
+
+## 🔹 🧾 Create Nginx Config
+
+```bash
+docker config create nginx_conf nginx.conf
+```
+
+---
+
+## 🔹 🚀 Deployment Commands
+
+```bash
+docker stack deploy -c docker-compose.yml bank
+docker stack ps bank
+docker stack services bank
+docker stack rm bank
+```
+
+---
+
+## 🔹 🔗 GitHub Webhook Setup
+
+1. Go to GitHub → Settings → Webhooks
+2. Add:
+
+```text
+http://<EC2-IP>:8080/github-webhook/
+```
+
+3. Content-Type: application/json
+
+---
+
+## 🔹 🔔 Enable in Jenkins
+
+✔ GitHub hook trigger for GITScm polling
+
+---
+
+## 🔹 🌍 Access Application
+
+```text
+http://<EC2-IP>/internet/
+http://<EC2-IP>/mobile/
+http://<EC2-IP>/insurance/
+http://<EC2-IP>/loan/
+```
+
+---
+
+## 🔹 🧰 Portainer (Optional GUI)
+
+```bash
+curl -L https://downloads.portainer.io/ce2-16/portainer-agent-stack.yml -o portainer.yml
+docker stack deploy -c portainer.yml portainer
+```
+
+👉 Access:
+http://<EC2-IP>:9000
+
+---
+
+## 🎯 Final Output
+
+✔ Automated CI/CD Pipeline
+✔ Docker Image Build & Push
+✔ Swarm Deployment (Multi-node)
+✔ Nginx Reverse Proxy
+✔ Webhook Trigger Automation
+
+---

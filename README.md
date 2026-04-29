@@ -10,9 +10,13 @@ The pipeline automatically builds, pushes, and deploys multiple microservices wh
 
 ## 🏗️ Architecture
 
-```
+
 GitHub → Webhook → Jenkins → Docker Build → Docker Hub → Docker Swarm → Nginx
-```
+
+<img width="1536" height="1024" alt="docker" src="https://github.com/user-attachments/assets/cbfe6f87-82eb-497b-9306-af4c3e296280" />
+
+
+
 
 ---
 
